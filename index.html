@@ -7,6 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1942 - Game of Old</title>
     <link rel="icon" href="./sprites/player.png">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -58,6 +60,15 @@
             background-image: url(sprites/explosion.gif);
         }
 
+        .score {
+            top: 15px;
+            left: 15px;
+            font-size: 20px;
+            color: white;
+            font-family: 'Press Start 2P', cursive;
+            z-index: 99;
+        }
+
         @keyframes animatedBackground {
             from {
                 background-position: 0 0;
@@ -73,6 +84,9 @@
 
 <body>
     <div id="container">
+        <div class="score">
+            Score: <span id="score">0</span>
+        </div>
         <div id="bg">
 
         </div>
@@ -94,7 +108,7 @@
             xd: 0,
             yd: 0,
             el: document.getElementById("player"),
-            speed: 4,
+            speed: 6,
             direction: "",
             bullets: [],
             shootBullet: false,
@@ -114,12 +128,20 @@
                 if (this.x + 30 > 1000 - this.w) {
                     this.x = 940;
                 }
+                if(this.y + 50 > 700){
+                    this.y = 650;
+                }
+            },
+            setBulletSounds: function () {
+                this.bulletSound = new Audio("shoot.mp3");
             },
             shoot: function () {
                 var bullet = mainworld.createObj();
                 bullet.create(this.x + 8, this.y - 8, 17, 12, "bullet.png", "bullet");
                 bullet.setDomCoords();
                 this.bullets.push(bullet);
+                this.bulletSound.currentTime = 0;
+                this.bulletSound.play();
             }
         }
 
@@ -127,6 +149,11 @@
         document.onkeydown = function (e) {
             if (e.type == 'keydown') {
                 keymap[e.keyCode] = true;
+            }
+
+            if (!mainworld.playing) {
+                mainworld.playing = true;
+                mainworld.bgSong.play();
             }
 
             if (keymap[37]) {
@@ -173,20 +200,35 @@
             bullets: [],
             explosions: [],
             spawn: false,
+            playing: false,
+            bgSong: null,
+            score: 0,
+            scoreEl: document.getElementById("score"),
+            setBg: function () {
+                this.bgSong = new Audio('bg.mp3');
+                this.bgSong.loop = true;
+                this.explodeSound = new Audio('explode.mp3');
+                this.explodeSound.volume = 0.2;
+            },
             updateGame: function () {
                 player.restrictMovement();
                 player.move();
 
                 this.collissionDetection();
-               
+
                 // this.randomiser(1,100) == 10 && 
-                if (!this.spawn) {
-                    this.spawn = true;
+                if (mainworld.enemies.length == 0) {
                     this.spawnEnemy();
                 }
 
                 this.moveObjects();
+
             },
+            setScore: function (number) {
+                this.score += number;
+                this.scoreEl.innerHTML = this.score;
+            },
+
             randomiser: function (min, max) {
                 return Math.floor(Math.random() * (max - min + 1)) + min;
             },
@@ -212,7 +254,9 @@
                 }
 
                 for (var i = 0; i < this.bullets.length; i++) {
+
                     this.bullets[i].y += 8;
+
                     this.bullets[i].setDomCoords();
                     if (this.bullets[i].y > 700) {
                         this.bullets[i].remove(this.bullets);
@@ -248,6 +292,7 @@
                     el: null,
                     img: "",
                     life: 1,
+                    playerCoords:{x:0,y:0},
                     set: function (x, y, w, h) {
                         this.x = x;
                         this.y = y;
@@ -279,6 +324,8 @@
                     shoot: function () {
                         var bullet = mainworld.createObj();
                         bullet.create(this.x + 8, this.y + 30, 17, 12, "bullet.png", "enemy_bullet");
+                        bullet.playerCoords.x = player.x;
+                        bullet.playerCoords.y = player.y;
                         bullet.setDomCoords();
                         mainworld.bullets.push(bullet);
                     },
@@ -306,21 +353,24 @@
                         image: "enemy2.png",
                         life: 3,
                         w: 50,
-                        h: 30
+                        h: 30,
+                        score: 20
                     },
                     {
                         image: "enemy.png",
                         life: 1,
                         w: 30,
-                        h: 30
+                        h: 30,
+                        score: 10
                     }
                 ];
-                for (var i = 0; i < 3; i++) {
+                for (var i = 0; i < 7; i++) {
                     var enemy = this.createObj();
                     var diffPlane = differentPlanes[this.randomiser(0, 1)];
 
-                    enemy.create(this.randomiser(10, 990 - (10 - enemy.w)), 0 - enemy.h, diffPlane.w, diffPlane.h, diffPlane.image, "enemy");
+                    enemy.create(this.randomiser(10, 990 - (10 - enemy.w)), this.randomiser(-300, 0 - enemy.h), diffPlane.w, diffPlane.h, diffPlane.image, "enemy");
                     enemy.life = diffPlane.life;
+                    enemy.score = diffPlane.score;
                     this.enemies.push(enemy);
                 }
             },
@@ -338,19 +388,68 @@
                                 setTimeout(function () {
                                     explode.remove(mainworld.explosions);
                                 }, 1000)
+                                this.explodeSound.currentTime = 0;
+                                this.explodeSound.play();
+                                mainworld.setScore(this.enemies[i].score);
                                 this.enemies[i].remove(this.enemies);
+
                             }
 
                         }
                     }
                 }
+
+                for (var i = 0; i < this.enemies.length; i++) {
+                    if (this.elCollission(player, this.enemies[i])) {
+                      
+                     
+                        var explode = this.createObj();
+                        explode.create(this.enemies[i].x, this.enemies[i].y, 30, 30, "explosion.gif", "explosion");
+                        mainworld.explosions.push(explode);
+                        setTimeout(function () {
+                            explode.remove(mainworld.explosions);
+                        }, 1000)
+                        this.explodeSound.currentTime = 0;
+                        this.explodeSound.play();
+                        this.enemies[i].remove(this.enemies);
+
+                        mainworld.setScore(-500);
+
+                    }
+                }
+                
+                for(var i = 0; i < this.bullets.length; i++){
+                    if (this.elCollission(player, this.bullets[i])) {
+                        this.bullets[i].remove(this.bullets);
+                     
+                      var explode = this.createObj();
+                      explode.create(player.x, player.y, 30, 30, "explosion.gif", "explosion");
+                      mainworld.explosions.push(explode);
+                      setTimeout(function () {
+                          explode.remove(mainworld.explosions);
+                      }, 1000)
+                      this.explodeSound.currentTime = 0;
+                      this.explodeSound.play();
+
+                      mainworld.setScore(-500);
+
+                  }
+                }
+                
+
             }
         }
 
 
         function startGame() {
+            mainworld.setBg();
+            player.setElementPosition();
+            player.setBulletSounds();
             game = setInterval(function () {
-                mainworld.updateGame()
+                if (mainworld.playing) {
+                    mainworld.updateGame()
+                }
+
             }, 20);
         }
 
