@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1942 - Game of Old</title>
+    <link rel="icon" href="./sprites/player.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        #container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1000px;
+            height: 700px;
+            overflow: hidden;
+        }
+
+        #bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: url(sprites/bg.jpg);
+            background-repeat: repeat;
+            background-position: 0 0;
+            background-size: auto 100%;
+            animation: animatedBackground 500s linear infinite;
+        }
+
+        .logo {
+            position: absolute;
+            top: 90%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #player {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: url(sprites/player.png) center center no-repeat;
+            background-size: cover;
+        }
+
+        #container div {
+            position: absolute;
+        }
+
+        .enemy.explode {
+            background-image: url(sprites/explosion.gif);
+        }
+
+        @keyframes animatedBackground {
+            from {
+                background-position: 0 0;
+            }
+
+            /*use negative width if you want it to flow right to left else and positive for left to right*/
+            to {
+                background-position: 10000px 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div id="bg">
+
+        </div>
+        <div id="player"></div>
+        <div class="logo">
+            <img src="./sprites/logo2.png" alt="">
+        </div>
+
+    </div>
+
+
+
+    <script>
+        var player = {
+            x: 470,
+            y: 320,
+            w: 30,
+            h: 30,
+            xd: 0,
+            yd: 0,
+            el: document.getElementById("player"),
+            speed: 4,
+            direction: "",
+            bullets: [],
+            shootBullet: false,
+            setElementPosition: function () {
+                this.el.style.top = this.y + "px";
+                this.el.style.left = this.x + "px";
+            },
+            move: function () {
+                this.x += this.xd * this.speed;
+                this.y += this.yd * this.speed;
+                this.setElementPosition();
+            },
+            restrictMovement: function () {
+                if (this.x < 30) {
+                    this.x = 30;
+                }
+                if (this.x + 30 > 1000 - this.w) {
+                    this.x = 940;
+                }
+            },
+            shoot: function () {
+                var bullet = mainworld.createObj();
+                bullet.create(this.x + 8, this.y - 8, 17, 12, "bullet.png", "bullet");
+                bullet.setDomCoords();
+                this.bullets.push(bullet);
+            }
+        }
+
+        var keymap = {};
+        document.onkeydown = function (e) {
+            if (e.type == 'keydown') {
+                keymap[e.keyCode] = true;
+            }
+
+            if (keymap[37]) {
+                player.xd = -1;
+            }
+
+            if (keymap[38]) {
+                player.yd = -1;
+            }
+
+            if (keymap[39]) {
+                player.xd = 1;
+            }
+
+            if (keymap[40]) {
+                player.yd = 1;
+            }
+
+            if (keymap[32]) {
+                player.shoot();
+            }
+
+        }
+
+        document.onkeyup = function (e) {
+            if (e.type == 'keyup') {
+                keymap[e.keyCode] = false;
+            }
+
+            if (!keymap[37] && !keymap[39]) {
+                player.xd = 0;
+            }
+
+            if (!keymap[38] && !keymap[40]) {
+                player.yd = 0;
+            }
+
+        }
+
+        var mainworld = {
+            game: null,
+            el: document.getElementById("container"),
+            enemies: [],
+            bullets: [],
+            explosions: [],
+            spawn: false,
+            updateGame: function () {
+                player.restrictMovement();
+                player.move();
+
+                this.collissionDetection();
+               
+                // this.randomiser(1,100) == 10 && 
+                if (!this.spawn) {
+                    this.spawn = true;
+                    this.spawnEnemy();
+                }
+
+                this.moveObjects();
+            },
+            randomiser: function (min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            },
+            moveObjects: function () {
+                for (var i = 0; i < this.enemies.length; i++) {
+                    this.enemies[i].y += 2;
+                    this.enemies[i].setDomCoords();
+                    this.enemies[i].randomShoot();
+                    if (this.enemies[i].y > 700) {
+                        this.enemies[i].remove(this.enemies);
+                    }
+                }
+                for (var i = 0; i < player.bullets.length; i++) {
+                    player.bullets[i].y -= 8;
+                    player.bullets[i].setDomCoords();
+                    if (player.bullets[i].y < 0 - player.bullets[i].h) {
+                        player.bullets[i].remove(player.bullets);
+                    }
+                }
+
+                for (var i = 0; i < this.explosions.length; i++) {
+                    this.explosions[i].setDomCoords();
+                }
+
+                for (var i = 0; i < this.bullets.length; i++) {
+                    this.bullets[i].y += 8;
+                    this.bullets[i].setDomCoords();
+                    if (this.bullets[i].y > 700) {
+                        this.bullets[i].remove(this.bullets);
+                    }
+                }
+
+            },
+            elCollission: function (obj1, obj2) {
+                var obj1Left = obj1.x;
+                var obj1Right = obj1.x + obj1.w;
+                var obj1Top = obj1.y;
+                var obj1Bottom = obj1.y + obj1.h;
+
+                var obj2Left = obj2.x;
+                var obj2Right = obj2.x + obj2.w;
+                var obj2Top = obj2.y;
+                var obj2Bottom = obj2.y + obj2.h;
+
+                var collide = true;
+
+                if (obj1Left > obj2Right || obj1Top > obj2Bottom || obj1Right < obj2Left || obj1Bottom < obj2Top) {
+                    collide = false;
+                }
+
+                return collide;
+            },
+            createObj: function () {
+                return {
+                    w: 0,
+                    h: 0,
+                    x: 0,
+                    y: 0,
+                    el: null,
+                    img: "",
+                    life: 1,
+                    set: function (x, y, w, h) {
+                        this.x = x;
+                        this.y = y;
+                        this.w = w;
+                        this.h = h
+                    },
+                    setImage: function (img) {
+                        this.img = img;
+                    },
+                    create: function (x, y, w, h, img, myclass) {
+                        var el = document.createElement("div");
+                        el.classList.add(myclass);
+                        el.style.backgroundImage = "url(./sprites/" + img + ")";
+                        el.style.backgroundSize = "cover";
+                        el.style.width = w + "px";
+                        el.style.height = h + "px";
+                        this.el = el;
+                        this.set(x, y, w, h);
+                        mainworld.el.appendChild(this.el);
+                    },
+                    setDomCoords: function () {
+                        this.el.style.left = this.x + "px";
+                        this.el.style.top = this.y + "px";
+                    },
+                    remove: function (arr) {
+                        this.el.remove();
+                        arr.splice(arr.indexOf(this), 1);
+                    },
+                    shoot: function () {
+                        var bullet = mainworld.createObj();
+                        bullet.create(this.x + 8, this.y + 30, 17, 12, "bullet.png", "enemy_bullet");
+                        bullet.setDomCoords();
+                        mainworld.bullets.push(bullet);
+                    },
+                    removeBullets() {
+                        console.log(this.bullets);
+                        for (var i = 0; i < this.bullets.length; i++) {
+                            this.bullets[i].remove(this.bullets);
+                        }
+                        console.log(this.bullets);
+                    },
+                    randomShoot: function () {
+                        if (mainworld.randomiser(0, 100) == 50) {
+                            this.shoot();
+                        }
+                    }
+                }
+            },
+            spawnEnemy: function () {
+                // Left Spawn
+
+
+                // Right Spawn
+                var differentPlanes = [
+                    {
+                        image: "enemy2.png",
+                        life: 3,
+                        w: 50,
+                        h: 30
+                    },
+                    {
+                        image: "enemy.png",
+                        life: 1,
+                        w: 30,
+                        h: 30
+                    }
+                ];
+                for (var i = 0; i < 3; i++) {
+                    var enemy = this.createObj();
+                    var diffPlane = differentPlanes[this.randomiser(0, 1)];
+
+                    enemy.create(this.randomiser(10, 990 - (10 - enemy.w)), 0 - enemy.h, diffPlane.w, diffPlane.h, diffPlane.image, "enemy");
+                    enemy.life = diffPlane.life;
+                    this.enemies.push(enemy);
+                }
+            },
+            collissionDetection() {
+                for (var i = 0; i < this.enemies.length; i++) {
+                    for (var x = 0; x < player.bullets.length; x++) {
+                        if (this.elCollission(player.bullets[x], this.enemies[i])) {
+                            player.bullets[x].remove(player.bullets);
+
+                            this.enemies[i].life--;
+                            if (this.enemies[i].life == 0) {
+                                var explode = this.createObj();
+                                explode.create(this.enemies[i].x, this.enemies[i].y, 30, 30, "explosion.gif", "explosion");
+                                mainworld.explosions.push(explode);
+                                setTimeout(function () {
+                                    explode.remove(mainworld.explosions);
+                                }, 1000)
+                                this.enemies[i].remove(this.enemies);
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+
+
+        function startGame() {
+            game = setInterval(function () {
+                mainworld.updateGame()
+            }, 20);
+        }
+
+        startGame();
+    </script>
+</body>
+
+</html>
