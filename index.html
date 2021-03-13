@@ -15,6 +15,9 @@
             padding: 0;
             box-sizing: border-box;
         }
+        body{
+            background: #2970a2;
+        }
 
         #container {
             position: absolute;
@@ -30,7 +33,8 @@
             position: absolute;
             width: 100%;
             height: 100%;
-            background: url(sprites/bg.jpg);
+            transform:rotate(90deg);
+            background: url(sprites/bg2.jpg);
             background-repeat: repeat;
             background-position: 0 0;
             background-size: auto 100%;
@@ -62,12 +66,14 @@
 
         .score {
             top: 15px;
-            left: 15px;
+            left: 170px;
             font-size: 20px;
             color: white;
             font-family: 'Press Start 2P', cursive;
             z-index: 99;
+            text-shadow: 3px 3px 1px black;
         }
+        
 
         @keyframes animatedBackground {
             from {
@@ -255,8 +261,10 @@
 
                 for (var i = 0; i < this.bullets.length; i++) {
 
-                    this.bullets[i].y += 8;
+                    // this.bullets[i].y += (this.bullets[i].playerCoords.y > this.bullets[i].y)? 8 : -8;
+                    // this.bullets[i].x += (this.bullets[i].playerCoords.x > this.bullets[i].x)? 8 : -8;
 
+                    this.bullets[i].y += 8;
                     this.bullets[i].setDomCoords();
                     if (this.bullets[i].y > 700) {
                         this.bullets[i].remove(this.bullets);
@@ -368,7 +376,7 @@
                     var enemy = this.createObj();
                     var diffPlane = differentPlanes[this.randomiser(0, 1)];
 
-                    enemy.create(this.randomiser(10, 990 - (10 - enemy.w)), this.randomiser(-300, 0 - enemy.h), diffPlane.w, diffPlane.h, diffPlane.image, "enemy");
+                    enemy.create(this.randomiser(200, 790 - (10 - enemy.w)), this.randomiser(-300, 0 - enemy.h), diffPlane.w, diffPlane.h, diffPlane.image, "enemy");
                     enemy.life = diffPlane.life;
                     enemy.score = diffPlane.score;
                     this.enemies.push(enemy);
