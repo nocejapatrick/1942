@@ -73,6 +73,53 @@
             z-index: 99;
             text-shadow: 3px 3px 1px black;
         }
+
+        #boss{
+            width: 65px;
+            height: 50px;
+            /* bac */
+            background: url(sprites/boss.png);
+           
+            top: -100px;
+            left:450px;
+        }
+
+        #boss.dead{
+            animation: bossDead 4s steps(13) forwards;
+        }
+        @keyframes bossDead {
+            from{
+                background-position-x: 0px;
+            }
+            to{
+                background-position-x: -845px;
+            }
+        }
+
+        #boss-life{
+            right: 170px;
+            top: 15px;
+            width: 140px;
+            height: 20px;
+            border: 1px solid black;
+            opacity: 0;
+            transition: 1.5 all ease-in-out;
+        }
+        #health{
+            width: 100%;
+            height: 100%;
+            background: #e01d1d;
+        }
+        #health-text{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform:translate(-50%,-50%);
+            z-index: 99;
+            color: white;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 13px;
+        }
         
 
         @keyframes animatedBackground {
@@ -100,7 +147,11 @@
         <div class="logo">
             <img src="./sprites/logo2.png" alt="">
         </div>
-
+        <div id="boss"></div>
+        <div id="boss-life">
+            <div id="health"></div>
+            <span id="health-text">100%</span>
+        </div>
     </div>
 
 
@@ -128,11 +179,11 @@
                 this.setElementPosition();
             },
             restrictMovement: function () {
-                if (this.x < 30) {
-                    this.x = 30;
+                if (this.x <= 180) {
+                    this.x = 180;
                 }
-                if (this.x + 30 > 1000 - this.w) {
-                    this.x = 940;
+                if (this.x + 30 > 850 - this.w) {
+                    this.x = 790;
                 }
                 if(this.y + 50 > 700){
                     this.y = 650;
@@ -199,9 +250,70 @@
 
         }
 
+        var boss = {
+            x: 450,
+            y: -100,
+            w: 65,
+            h: 50,
+            xd: 0,
+            yd: 0,
+            el: document.getElementById("boss"),
+            healthEl: document.getElementById("health"),
+            healthTextEl: document.getElementById("health-text"),
+            speed: 6,
+            direction: "left",
+            bullets: [],
+            life:50,
+            shootBullet: false,
+            dead:false,
+            setElementPosition: function () {
+                this.el.style.top = this.y + "px";
+                this.el.style.left = this.x + "px";
+            },
+            move: function () {
+                this.x += this.xd * this.speed;
+                this.y += this.yd * this.speed;
+                this.setElementPosition();
+            },
+            restrictMovement: function () {
+                if (this.x < 30) {
+                    this.x = 30;
+                }
+                if (this.x + 30 > 1000 - this.w) {
+                    this.x = 940;
+                }
+                if(this.y + 50 > 700){
+                    this.y = 650;
+                }
+            },
+            setBulletSounds: function () {
+                this.bulletSound = new Audio("shoot.mp3");
+            },
+            shoot: function () {
+                var bullet = mainworld.createObj();
+                bullet.create(this.x + 15, this.y + 20, 17, 12, "bullet.png", "bullet");
+                bullet.setDomCoords();
+                mainworld.bullets.push(bullet);
+                this.bulletSound.currentTime = 0;
+                this.bulletSound.play();
+            },
+            randomShoot: function () {
+                if (mainworld.randomiser(0, 50) == 10) {
+                    this.shoot();
+                }
+            },
+            setHealth:function(){
+                var maxLife = 50;
+                var percent = (this.life/maxLife)*100;
+                this.healthEl.style.width = percent+"%";
+                this.healthTextEl.innerHTML = Math.round(percent)+"%";
+            }
+        }
+
         var mainworld = {
             game: null,
             el: document.getElementById("container"),
+            bossEl: document.getElementById("boss"),
             enemies: [],
             bullets: [],
             explosions: [],
@@ -209,12 +321,73 @@
             playing: false,
             bgSong: null,
             score: 0,
+            bossSpawn: false,
+            enemyDied:0,
             scoreEl: document.getElementById("score"),
+            direction:"left",
+            spawnBoss:function(){
+                if(!this.bossSpawn && this.enemyDied == 7){
+                    this.bossSpawn = true;
+                    this.bgSong.pause();
+                    document.getElementById('boss-life').style.opacity = 1;
+                    this.bossSound.play();
+                }
+
+                if(this.bossSpawn && !boss.dead){
+
+                    if(boss.y != 120){
+                        boss.y += 1;
+                    } 
+                    
+                    if(boss.y == 120){
+                        if(boss.direction == "left"){
+                            boss.x -= 2;
+                            if(boss.x < 200){
+                                boss.direction = "right";
+                            }
+                        }
+                        if(boss.direction == "right"){
+                            boss.x += 2;
+                            if(boss.x > 740){
+                                boss.direction = "left";
+                            }
+                        }
+                        boss.randomShoot();
+                    }
+                    
+                    // console.log(boss.direction);
+
+                    boss.setElementPosition();
+                }
+
+                console.log(player.x);
+                boss.setHealth();
+                if(boss.life <= 0){
+                  
+                    boss.dead = true;
+                    boss.life = 0;
+                    this.bossSound.pause();
+                    boss.el.classList.add("dead");
+                    this.defeatBoss.play();
+                    player.speed = 0;
+                    setTimeout(function(){
+                        boss.el.remove();
+                    },4000);
+
+                    setTimeout(function(){
+                        player.y -= 20;
+                    },5000)
+                }
+            },
             setBg: function () {
                 this.bgSong = new Audio('bg.mp3');
                 this.bgSong.loop = true;
                 this.explodeSound = new Audio('explode.mp3');
                 this.explodeSound.volume = 0.2;
+                this.bossSound = new Audio('boss.mp3');
+                this.bossSound.loop = true;
+                this.defeatBoss = new Audio('defeat_boss.mp3');
+                this.defeatBoss.loop = true;
             },
             updateGame: function () {
                 player.restrictMovement();
@@ -222,10 +395,11 @@
 
                 this.collissionDetection();
 
-                // this.randomiser(1,100) == 10 && 
-                if (mainworld.enemies.length == 0) {
+                mainworld.spawnBoss();
+                if (this.enemies.length == 0 && this.bossSpawn == false) {
                     this.spawnEnemy();
                 }
+
 
                 this.moveObjects();
 
@@ -312,6 +486,7 @@
                     },
                     create: function (x, y, w, h, img, myclass) {
                         var el = document.createElement("div");
+                        this.class = myclass;
                         el.classList.add(myclass);
                         el.style.backgroundImage = "url(./sprites/" + img + ")";
                         el.style.backgroundSize = "cover";
@@ -326,6 +501,9 @@
                         this.el.style.top = this.y + "px";
                     },
                     remove: function (arr) {
+                        if(this.class == "enemy"){
+                            mainworld.enemyDied++;
+                        }
                         this.el.remove();
                         arr.splice(arr.indexOf(this), 1);
                     },
@@ -372,6 +550,7 @@
                         score: 10
                     }
                 ];
+              
                 for (var i = 0; i < 7; i++) {
                     var enemy = this.createObj();
                     var diffPlane = differentPlanes[this.randomiser(0, 1)];
@@ -381,6 +560,18 @@
                     enemy.score = diffPlane.score;
                     this.enemies.push(enemy);
                 }
+              
+             
+            },
+            createExplosion:function(x,y){
+                var explode = this.createObj();
+                explode.create(x, y, 30, 30, "explosion.gif", "explosion");
+                mainworld.explosions.push(explode);
+                setTimeout(function () {
+                    explode.remove(mainworld.explosions);
+                }, 1000)
+                this.explodeSound.currentTime = 0;
+                this.explodeSound.play();
             },
             collissionDetection() {
                 for (var i = 0; i < this.enemies.length; i++) {
@@ -390,14 +581,7 @@
 
                             this.enemies[i].life--;
                             if (this.enemies[i].life == 0) {
-                                var explode = this.createObj();
-                                explode.create(this.enemies[i].x, this.enemies[i].y, 30, 30, "explosion.gif", "explosion");
-                                mainworld.explosions.push(explode);
-                                setTimeout(function () {
-                                    explode.remove(mainworld.explosions);
-                                }, 1000)
-                                this.explodeSound.currentTime = 0;
-                                this.explodeSound.play();
+                                this.createExplosion(this.enemies[i].x,this.enemies[i].y);
                                 mainworld.setScore(this.enemies[i].score);
                                 this.enemies[i].remove(this.enemies);
 
@@ -409,18 +593,8 @@
 
                 for (var i = 0; i < this.enemies.length; i++) {
                     if (this.elCollission(player, this.enemies[i])) {
-                      
-                     
-                        var explode = this.createObj();
-                        explode.create(this.enemies[i].x, this.enemies[i].y, 30, 30, "explosion.gif", "explosion");
-                        mainworld.explosions.push(explode);
-                        setTimeout(function () {
-                            explode.remove(mainworld.explosions);
-                        }, 1000)
-                        this.explodeSound.currentTime = 0;
-                        this.explodeSound.play();
+                        this.createExplosion(this.enemies[i].x,this.enemies[i].y);
                         this.enemies[i].remove(this.enemies);
-
                         mainworld.setScore(-500);
 
                     }
@@ -428,22 +602,23 @@
                 
                 for(var i = 0; i < this.bullets.length; i++){
                     if (this.elCollission(player, this.bullets[i])) {
-                        this.bullets[i].remove(this.bullets);
+                      this.bullets[i].remove(this.bullets);
                      
-                      var explode = this.createObj();
-                      explode.create(player.x, player.y, 30, 30, "explosion.gif", "explosion");
-                      mainworld.explosions.push(explode);
-                      setTimeout(function () {
-                          explode.remove(mainworld.explosions);
-                      }, 1000)
-                      this.explodeSound.currentTime = 0;
-                      this.explodeSound.play();
-
+                      this.createExplosion(player.x,player.y);
                       mainworld.setScore(-500);
 
                   }
                 }
                 
+
+               for(var i = 0; i < player.bullets.length; i++){
+                   if(mainworld.bossSpawn == true && this.elCollission(boss,player.bullets[i])){
+                     this.createExplosion(player.bullets[i].x,player.bullets[i].y);
+                     player.bullets[i].remove(player.bullets);
+                     boss.life--;
+                   } 
+               }
+
 
             }
         }
@@ -453,6 +628,7 @@
             mainworld.setBg();
             player.setElementPosition();
             player.setBulletSounds();
+            boss.setBulletSounds();
             game = setInterval(function () {
                 if (mainworld.playing) {
                     mainworld.updateGame()
